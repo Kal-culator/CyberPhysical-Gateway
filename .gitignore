@@ -1,0 +1,11 @@
+# Java
+*.class
+*.jar
+
+# ESP32 / Arduino build artifacts
+build/
+*.elf
+*.bin
+*.hex
+*.map
+.vscode/
