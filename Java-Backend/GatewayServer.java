@@ -1,9 +1,9 @@
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.*;
+import org.json.JSONObject; 
 
 public class GatewayServer {
-    // Thread pool to handle multiple connections simultaneously
     private static final ExecutorService pool = Executors.newFixedThreadPool(10);
 
     public static void main(String[] args) {
@@ -14,8 +14,6 @@ public class GatewayServer {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Incoming connection from: " + clientSocket.getInetAddress().getHostAddress());
-                
-                // Hand the connection off to a new thread and instantly go back to listening
                 pool.execute(new ClientHandler(clientSocket));
             }
         } catch (IOException e) {
@@ -23,7 +21,6 @@ public class GatewayServer {
         }
     }
 
-    // Inner class defining the thread logic
     private static class ClientHandler implements Runnable {
         private Socket socket;
 
@@ -36,8 +33,20 @@ public class GatewayServer {
             try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
                 String inputLine;
                 while ((inputLine = in.readLine()) != null) {
-                    System.out.println("Processing Payload: " + inputLine);
-                    // Sadiq's database logic and JSON parsing will go here later
+                    System.out.println("Raw Payload Received: " + inputLine);
+                    
+                    try {
+                        JSONObject payload = new JSONObject(inputLine);
+                        String sensor = payload.getString("sensor");
+                        int uid = payload.getInt("uid");
+                        String action = payload.getString("action");
+                        
+                        System.out.println("Parsed -> Sensor: " + sensor + " | UID: " + uid);
+                        
+                        
+                    } catch (Exception e) {
+                        System.out.println("JSON Parsing Error: " + e.getMessage());
+                    }
                 }
             } catch (IOException e) {
                 System.out.println("Client Disconnected.");
