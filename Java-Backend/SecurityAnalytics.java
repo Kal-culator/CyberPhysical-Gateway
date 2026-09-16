@@ -16,7 +16,6 @@ public class SecurityAnalytics {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                // Extract the Red, Green, and Blue integer values for the current pixel
                 Color color = new Color(image.getRGB(x, y));
                 int r = color.getRed();
                 int g = color.getGreen();

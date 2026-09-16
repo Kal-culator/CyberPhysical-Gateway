@@ -1,7 +1,9 @@
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.*;
-import org.json.JSONObject; 
+import org.json.JSONObject;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 
 public class GatewayServer {
     private static final ExecutorService pool = Executors.newFixedThreadPool(10);
@@ -35,6 +37,31 @@ public class GatewayServer {
                 while ((inputLine = in.readLine()) != null) {
                     System.out.println("Raw Payload Received: " + inputLine);
                     
+                    
+                    if (inputLine.trim().equals("TAMPER") || inputLine.contains("\"TAMPER\"")) {
+                        System.out.println("🚨 Pi reported tampering! Engaging camera...");
+                        
+                        try {
+                            System.out.println("Waiting for ESP32 image stream on port 8081...");
+                            try (ServerSocket camServer = new ServerSocket(8081)) {
+                                Socket espSocket = camServer.accept();
+                                BufferedImage espFrame = ImageIO.read(espSocket.getInputStream());
+                                
+                                double luminance = SecurityAnalytics.calculateAverageLuminance(espFrame);
+                                
+                                if (SecurityAnalytics.isCameraBlinded(luminance, true)) {
+                                    TelegramNotifier.sendAlert("🚨 CRITICAL: Camera blinded! Luminance: " + luminance);
+                                } else {
+                                    TelegramNotifier.sendAlert("⚠️ ALERT: Invalid fingerprint/motion! (Cam not blinded)");
+                                }
+                                espSocket.close();
+                            }
+                        } catch (Exception e) {
+                            System.out.println("Error fetching camera image: " + e.getMessage());
+                        }
+                        continue; 
+                    }
+                    
                     try {
                         JSONObject payload = new JSONObject(inputLine);
                         String sensor = payload.getString("sensor");
@@ -42,7 +69,6 @@ public class GatewayServer {
                         String action = payload.getString("action");
                         
                         System.out.println("Parsed -> Sensor: " + sensor + " | UID: " + uid);
-                        
                         
                     } catch (Exception e) {
                         System.out.println("JSON Parsing Error: " + e.getMessage());
