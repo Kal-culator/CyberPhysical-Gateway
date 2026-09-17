@@ -1,0 +1,12 @@
+System.out.println("Waiting for ESP32 to send image...");
+Socket espSocket = serverSocket.accept(); 
+InputStream imageStream = espSocket.getInputStream();
+
+BufferedImage espFrame = ImageIO.read(imageStream);
+
+// 3. Run the math you wrote earlier
+double luminance = SecurityAnalytics.calculateAverageLuminance(espFrame);
+
+if (SecurityAnalytics.isCameraBlinded(luminance, true)) {
+    TelegramNotifier.sendAlert("🚨 ALERT: Camera blinded! Luminance: " + luminance);
+}
