@@ -1,0 +1,9 @@
+{
+  "python_logic_tests": 21,
+  "result": "passed",
+  "python_syntax": "passed",
+  "installer_syntax": "passed",
+  "hardware_tested": false,
+  "esp32_compiled_or_flashed": false,
+  "note": "Run the per-device checks on the wired Pi. Match config pins and physical input-driver polarity first."
+}
