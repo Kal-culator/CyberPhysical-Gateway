@@ -1,0 +1,18 @@
+{
+  "lcd_address": "0x27",
+  "fingerprint_port": "/dev/serial0",
+  "fingerprint_baud": 57600,
+  "allowed_finger_ids": [1],
+  "minimum_confidence": 50,
+  "buzzer_relay_gpio": 27,
+  "lock_relay_gpio": 22,
+  "relay_active_high": true,
+  "unlock_seconds": 0.5,
+  "buzzer_seconds": 0.8,
+  "cooldown_seconds": 1.5,
+  "server_enabled": true,
+  "server_host": "192.168.1.50",
+  "server_port": 8080,
+  "device_id": "door-1",
+  "approval_timeout_seconds": 30
+}
