@@ -1,3 +1,5 @@
+> **Laptop webcam update:** Follow [LAPTOP-WEBCAM.md](LAPTOP-WEBCAM.md) to replace only the ESP32-CAM. Pull this update on both laptop and Pi.
+
 # Exact execution guide: laptop versus Raspberry Pi
 
 Use the standalone `Tomorrow-Demo` folder for this demonstration. Commands marked **LAPTOP** run on your Mac laptop. Commands marked **RASPBERRY PI** run in the Pi terminal. Keep the laptop and Pi connected to the same Wi-Fi.

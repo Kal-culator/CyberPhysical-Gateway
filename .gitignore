@@ -9,3 +9,9 @@ build/
 *.hex
 *.map
 .vscode/
+
+# Laptop webcam environment, local photos and generated builds
+.webcam-venv/
+webcam-test.jpg
+__pycache__/
+target/

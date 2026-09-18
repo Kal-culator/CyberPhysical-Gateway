@@ -222,7 +222,8 @@ def send_event(match, decision, relay_channel, config, wait_for_action=False):
                 (config["server_host"], config["server_port"]), timeout=0.8) as connection:
             connection.sendall((json.dumps(payload, separators=(",", ":")) + "\n").encode())
             if wait_for_action:
-                connection.settimeout(config["approval_timeout_seconds"] + 7)
+                # Allow bounded webcam capture/upload, Telegram polling and message cleanup.
+                connection.settimeout(config["approval_timeout_seconds"] + 40)
                 with connection.makefile("r", encoding="utf-8") as response_stream:
                     response = response_stream.readline(2049)
                 if not response or len(response) > 2048:

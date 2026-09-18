@@ -1,3 +1,5 @@
+> **Laptop webcam update:** Follow [LAPTOP-WEBCAM.md](LAPTOP-WEBCAM.md) to replace only the ESP32-CAM. Pull this update on both laptop and Pi.
+
 # Tomorrow's fingerprint-door demonstration
 
 For the clearest command-by-command instructions, open `EXECUTE-GUIDE.md`. Every command there is labelled **LAPTOP** or **RASPBERRY PI**.

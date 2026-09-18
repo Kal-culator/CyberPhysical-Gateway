@@ -22,4 +22,10 @@ fi
 export DB_USER="${DB_USER:-root}"
 export DB_URL="${DB_URL:-jdbc:mysql://localhost:3306/smart_door_demo?serverTimezone=UTC}"
 export APPROVAL_TIMEOUT_SECONDS="${APPROVAL_TIMEOUT_SECONDS:-30}"
+export WEBCAM_PYTHON="${WEBCAM_PYTHON:-$PWD/.webcam-venv/bin/python}"
+export WEBCAM_SCRIPT="${WEBCAM_SCRIPT:-$PWD/capture_webcam.py}"
+if [[ ! -x "$WEBCAM_PYTHON" ]]; then
+  echo 'Run bash setup_webcam.sh and bash test_webcam.sh first.' >&2
+  exit 1
+fi
 mvn -q compile exec:java

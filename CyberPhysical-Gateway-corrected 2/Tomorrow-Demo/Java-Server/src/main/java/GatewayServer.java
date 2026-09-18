@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -33,6 +34,7 @@ public final class GatewayServer {
     private static final String CHAT_ID = environment("TELEGRAM_CHAT_ID", "");
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5)).build();
+    private static final String TELEGRAM_API_BASE = environment("TELEGRAM_API_BASE", "https://api.telegram.org");
     private static long nextUpdateId = 0;
 
     private GatewayServer() {}
@@ -150,7 +152,16 @@ public final class GatewayServer {
             send.put("text", "Unknown fingerprint at " + event.deviceId + ".\n" + description
                     + "\nOpen the lock? Reply within " + APPROVAL_SECONDS + " seconds.");
             send.put("reply_markup", keyboard);
-            String sent = telegram("sendMessage", send, 8);
+            byte[] photo = null;
+            try {
+                photo = LaptopWebcam.capture();
+            } catch (Exception error) {
+                System.err.println("Webcam unavailable: " + error.getMessage());
+                send.put("text", send.get("text") + "\nPhoto unavailable: laptop webcam could not capture.");
+            }
+            // A failed upload denies the request; do not create duplicate approval prompts.
+            boolean photoMessage = photo != null;
+            String sent = photoMessage ? telegramPhoto(send, photo) : telegram("sendMessage", send, 8);
             int messageId = firstInteger(sent, "message_id");
             long deadline = System.nanoTime() + Duration.ofSeconds(APPROVAL_SECONDS).toNanos();
             while (System.nanoTime() < deadline) {
@@ -162,12 +173,17 @@ public final class GatewayServer {
                 CallbackAnswer answer = findCallback(updates, requestId);
                 if (answer != null) {
                     boolean yes = answer.yes;
-                    answerCallback(answer.callbackId, yes ? "Door opening" : "Access denied");
-                    finishTelegramMessage(messageId, yes ? "YES - door opened." : "NO - access denied.");
+                    try {
+                        answerCallback(answer.callbackId, yes ? "Door opening" : "Access denied");
+                    } catch (Exception error) {
+                        System.err.println("Could not acknowledge Telegram button.");
+                    }
+                    finishTelegramMessage(messageId, photoMessage,
+                            yes ? "YES - opening requested." : "NO - access denied.");
                     return new Decision(yes ? "YES" : "NO", yes ? "OPEN" : "BUZZER", yes ? 2 : 1);
                 }
             }
-            finishTelegramMessage(messageId, "Timed out after " + APPROVAL_SECONDS + " seconds - access denied.");
+            finishTelegramMessage(messageId, photoMessage, "Timed out after " + APPROVAL_SECONDS + " seconds - access denied.");
             return new Decision("TIMEOUT", "BUZZER", 1);
         } catch (Exception error) {
             System.err.println("Telegram approval failed: " + error.getMessage());
@@ -189,14 +205,47 @@ public final class GatewayServer {
                 "callback_query_id", callbackId, "text", text), 5);
     }
 
-    private static void finishTelegramMessage(int messageId, String text)
-            throws IOException, InterruptedException {
+    private static void finishTelegramMessage(int messageId, boolean photoMessage, String text) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("chat_id", CHAT_ID);
         fields.put("message_id", Integer.toString(messageId));
-        fields.put("text", text);
+        fields.put(photoMessage ? "caption" : "text", text);
         fields.put("reply_markup", "{\"inline_keyboard\":[]}");
-        telegram("editMessageText", fields, 5);
+        try {
+            telegram(photoMessage ? "editMessageCaption" : "editMessageText", fields, 5);
+        } catch (Exception error) {
+            // Cosmetic cleanup must not turn an accepted YES into a denied request.
+            System.err.println("Could not update Telegram result message.");
+        }
+    }
+
+    private static String telegramPhoto(Map<String, String> fields, byte[] photo)
+            throws IOException, InterruptedException {
+        String boundary = "Gateway" + UUID.randomUUID().toString().replace("-", "");
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        for (Map.Entry<String, String> field : fields.entrySet()) {
+            String name = field.getKey().equals("text") ? "caption" : field.getKey();
+            body.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\""
+                    + name + "\"\r\n\r\n" + field.getValue() + "\r\n")
+                    .getBytes(StandardCharsets.UTF_8));
+        }
+        body.write(("--" + boundary
+                + "\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"visitor.jpg\""
+                + "\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        body.write(photo);
+        body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(TELEGRAM_API_BASE + "/bot" + BOT_TOKEN + "/sendPhoto"))
+                .timeout(Duration.ofSeconds(8))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build();
+        HttpResponse<String> response = HTTP.send(request,
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() != 200
+                || !Pattern.compile("\\\"ok\\\"\\s*:\\s*true").matcher(response.body()).find()) {
+            throw new IOException("Telegram sendPhoto returned HTTP " + response.statusCode());
+        }
+        return response.body();
     }
 
     private static String telegram(String method, Map<String, String> fields, int timeoutSeconds)
@@ -209,7 +258,7 @@ public final class GatewayServer {
             form.append(URLEncoder.encode(field.getValue(), StandardCharsets.UTF_8));
         }
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.telegram.org/bot" + BOT_TOKEN + "/" + method))
+                .uri(URI.create(TELEGRAM_API_BASE + "/bot" + BOT_TOKEN + "/" + method))
                 .timeout(Duration.ofSeconds(Math.max(5, timeoutSeconds)))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(form.toString()))
