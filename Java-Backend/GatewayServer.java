@@ -12,7 +12,7 @@ public class GatewayServer {
     private static final String BOT_TOKEN = "8715105333:AAFqA454czMeq0aNJfztXuLUXOsfu0vflwU";
     private static final String CHAT_ID = "6301149879";
 
-    // ANSI Color Codes for Pretty Console
+    // ANSI Color Codes
     private static final String RESET = "\u001B[0m";
     private static final String BOLD = "\u001B[1m";
     private static final String CYAN = "\u001B[36m";
@@ -56,8 +56,8 @@ public class GatewayServer {
                         System.out.println(RED + BOLD + "🚨 PI REPORTED TAMPERING! Waiting for ESP32 camera on port 8081..." + RESET);
                         
                         boolean imageSaved = false;
+                        boolean cameraBlinded = false;
                         
-                        // Step 1: Secure the Image FIRST
                         try (ServerSocket camServer = new ServerSocket(8081)) {
                             camServer.setSoTimeout(10000); 
                             Socket espSocket = camServer.accept();
@@ -68,6 +68,13 @@ public class GatewayServer {
                                 ImageIO.write(espFrame, "jpg", outputFile);
                                 System.out.println(GREEN + "  ✅ Image successfully saved as intruder.jpg" + RESET);
                                 imageSaved = true;
+
+                                // --- YOUR SECURITY ANALYTICS LOGIC ---
+                                double luminance = SecurityAnalytics.calculateAverageLuminance(espFrame);
+                                if (SecurityAnalytics.isCameraBlinded(luminance, true)) {
+                                    System.out.println(RED + BOLD + "  ⚠️ WARNING: Camera appears blinded! (Luminance: " + String.format("%.2f", luminance) + ")" + RESET);
+                                    cameraBlinded = true;
+                                }
                             }
                             espSocket.close();
                         } catch (SocketTimeoutException ste) {
@@ -76,8 +83,7 @@ public class GatewayServer {
                             System.out.println(RED + "  ❌ Error fetching camera image: " + e.getMessage() + RESET);
                         }
                         
-                        // Step 2: Send Alert AFTER image is ready (with Auto-Reconnect)
-                        sendTelegramAlert(imageSaved);
+                        sendTelegramAlert(imageSaved, cameraBlinded);
                         continue; 
                     }
                     
@@ -85,7 +91,6 @@ public class GatewayServer {
                         JSONObject payload = new JSONObject(inputLine);
                         System.out.println(GREEN + "  [Parsed] Sensor: " + payload.optString("sensor") + " | UID: " + payload.optInt("uid") + RESET);
                     } catch (Exception e) {
-                        // Ignore JSON parsing errors for basic string commands
                     }
                 }
             } catch (IOException e) {
@@ -100,11 +105,15 @@ public class GatewayServer {
         }
     }
 
-    // --- BULLETPROOF TELEGRAM RETRY LOGIC ---
-    public static void sendTelegramAlert(boolean hasImage) {
+    public static void sendTelegramAlert(boolean hasImage, boolean cameraBlinded) {
         int maxRetries = 3;
         int attempt = 0;
         boolean sent = false;
+
+        String caption = "🚨 ALERT: Unauthorized Fingerprint Detected!";
+        if (cameraBlinded) {
+            caption = "🚨 ALERT: Unauthorized Fingerprint AND Camera Tampering Detected (Lens Covered)!";
+        }
 
         while (attempt < maxRetries && !sent) {
             try {
@@ -116,9 +125,8 @@ public class GatewayServer {
                     command = "curl -s -X POST https://api.telegram.org/bot" + BOT_TOKEN + "/sendPhoto " +
                               "-F chat_id=" + CHAT_ID + " " +
                               "-F photo=@intruder.jpg " +
-                              "-F caption=\"🚨 ALERT: Unauthorized Fingerprint Detected!\"";
+                              "-F caption=\"" + caption + "\"";
                 } else {
-                    // Fallback just in case the ESP-CAM dies, so you still get a text warning
                     command = "curl -s -X POST https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage " +
                               "-d chat_id=" + CHAT_ID + " " +
                               "-d text=\"🚨 ALERT: Tamper detected, but ESP32 camera failed to capture image!\"";
@@ -138,7 +146,6 @@ public class GatewayServer {
                 System.out.println(RED + "  ❌ Network error: " + e.getMessage() + RESET);
             }
 
-            // If it failed, wait 3 seconds and loop again
             if (!sent && attempt < maxRetries) {
                 System.out.println(YELLOW + "  🔄 Spotty connection. Retrying in 3 seconds..." + RESET);
                 try {
