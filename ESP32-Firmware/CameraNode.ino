@@ -1,10 +1,11 @@
 #include <WiFi.h>
 #include "esp_camera.h"
 
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-const char* serverIP = "192.168.X.X"; 
-const int serverPort = 8080;
+// --- UPDATED CONFIGURATION ---
+const char* ssid = "YOUR_WIFI_SSID";     // Type your exact hotspot name here
+const char* password = "YOUR_WIFI_PASSWORD"; // Type your hotspot password here
+const char* serverIP = "172.20.10.3";    // Your Mac's iOS hotspot IP
+const int serverPort = 8081;             // Dedicated camera port on the Java server
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -86,13 +87,12 @@ void captureAndSend() {
     client.stop();
     Serial.println("Image sent successfully.");
   } else {
-    Serial.println("Connection to Java server failed.");
+    // Suppressed printing here so it doesn't spam your Serial monitor every 1.5 seconds
   }
   esp_camera_fb_return(fb);
 }
 
 void loop() {
-
   captureAndSend();
-  delay(10000);
+  delay(1500); // 1.5 second rapid-polling to ensure it catches the Java server's 10-second open window
 }
