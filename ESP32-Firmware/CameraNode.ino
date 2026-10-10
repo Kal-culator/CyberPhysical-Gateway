@@ -4,8 +4,11 @@
 // --- UPDATED CONFIGURATION ---
 const char* ssid = "YOUR_WIFI_SSID";     // Type your exact hotspot name here
 const char* password = "YOUR_WIFI_PASSWORD"; // Type your hotspot password here
-const char* serverIP = "172.20.10.3";    // Your Mac's iOS hotspot IP
-const int serverPort = 8081;             // Dedicated camera port on the Java server
+
+// 🚨 DEMO DAY WARNING: iPhones change this IP depending on what connects first!
+// Yash MUST verify this IP on his Mac using 'ipconfig getifaddr en0' on Demo Day.
+const char* serverIP = "172.20.10.3";    
+const int serverPort = 8081;             
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -34,7 +37,9 @@ void setup() {
   }
   Serial.println("\nWiFi connected");
 
-  camera_config_t config;
+  // 🛠️ FIX 1: Zero-initialized to prevent memory crashes
+  camera_config_t config = {};
+  
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
   config.pin_d0 = Y2_GPIO_NUM;
@@ -49,22 +54,23 @@ void setup() {
   config.pin_pclk = PCLK_GPIO_NUM;
   config.pin_vsync = VSYNC_GPIO_NUM;
   config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  
+  // 🛠️ FIX 2: Core 3.x compatibility (Changed 'sscb' to 'sccb')
+  // NOTE: If Arduino throws an error here, change the 'c' back to an 's'!
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
+  
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
   
-  if(psramFound()){
-    config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 10;
-    config.fb_count = 2;
-  } else {
-    config.frame_size = FRAMESIZE_SVGA;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
-  }
+  // 🛠️ FIX 3 & 4: Fast Resolution & No Ghost Photos
+  // Bypassed PSRAM to force SVGA so Telegram alerts send instantly.
+  config.frame_size = FRAMESIZE_SVGA;
+  config.jpeg_quality = 12;
+  config.fb_count = 1;
+  config.grab_mode = CAMERA_GRAB_LATEST; // Forces a brand new photo every time
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -87,12 +93,22 @@ void captureAndSend() {
     client.stop();
     Serial.println("Image sent successfully.");
   } else {
-    // Suppressed printing here so it doesn't spam your Serial monitor every 1.5 seconds
+    // Suppressed printing so it doesn't spam the Serial monitor
   }
   esp_camera_fb_return(fb);
 }
 
 void loop() {
+  // 🛠️ FIX 5: The Drop-Off Death Fix
+  // Automatically reconnects to your hotspot if the connection glitches
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ Wi-Fi lost! Reconnecting...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    delay(2000);
+    return; 
+  }
+
   captureAndSend();
-  delay(1500); // 1.5 second rapid-polling to ensure it catches the Java server's 10-second open window
+  delay(1500); // 1.5 second rapid-polling
 }
