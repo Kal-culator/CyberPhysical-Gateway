@@ -1,0 +1,11 @@
+server/target/
+server/config.properties
+pi/config.json
+pi/.venv/
+camera/CameraNode/Secrets.h
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+*.previous
+release/*.jar

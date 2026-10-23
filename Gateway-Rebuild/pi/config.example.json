@@ -1,0 +1,22 @@
+{
+  "server_url": "http://YOUR_MAC_IP:8080",
+  "api_key": "CHANGE_ME_USE_CONFIGURE_TOOL",
+  "device_id": "door-1",
+  "lcd_enabled": true,
+  "lcd_address": "0x27",
+  "fingerprint_port": "/dev/serial0",
+  "fingerprint_baud": 57600,
+  "buzzer_gpio": 27,
+  "lock_gpio": 22,
+  "relay_active_high": true,
+  "unlock_seconds": 0.5,
+  "buzzer_seconds": 0.8,
+  "minimum_confidence": 50,
+  "approval_timeout_seconds": 30,
+  "mpu_enabled": false,
+  "mpu_address": "0x68",
+  "motion_delta_g": 0.65,
+  "motion_gyro_dps": 100,
+  "motion_samples": 3,
+  "tamper_cooldown_seconds": 30
+}
